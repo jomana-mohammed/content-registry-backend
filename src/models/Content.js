@@ -46,6 +46,5 @@ const contentSchema = new mongoose.Schema({
 
 // Compound index for efficient queries
 contentSchema.index({ userId: 1, createdAt: -1 });
-contentSchema.index({ type: 1 });
 
 module.exports = mongoose.model('Content', contentSchema);
