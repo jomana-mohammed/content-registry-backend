@@ -8,11 +8,15 @@ const connectDB = async (uri) => {
     return;
   }
 
+  const connectionUri = uri || process.env.MONGODB_URI;
+
+  if (!connectionUri) {
+    console.error('❌ MongoDB URI is missing');
+    process.exit(1);
+  }
+
   try {
-    const connectionUri = uri || process.env.MONGODB_URI;
-    
     await mongoose.connect(connectionUri);
-    
     isConnected = true;
     console.log(`✅ MongoDB Connected: ${mongoose.connection.host}`);
   } catch (error) {
@@ -20,6 +24,7 @@ const connectDB = async (uri) => {
     process.exit(1);
   }
 };
+
 
 // Handle connection events
 mongoose.connection.on('disconnected', () => {
