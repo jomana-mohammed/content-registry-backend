@@ -8,7 +8,7 @@ const {
     deleteContent
 } = require('../controllers/contentController');
 const { protect } = require('../middleware/auth');
-const upload = require('../middleware/upload');
+const { upload, uploadToSupabase } = require('../middleware/supabaseUpload');
 const { contentValidation, validate } = require('../middleware/validation');
 
 const router = express.Router();
@@ -17,7 +17,8 @@ const router = express.Router();
 router.post(
     '/', 
     protect, 
-    upload.single('file'), 
+    upload.single('file'),
+    uploadToSupabase, // This middleware uploads to Supabase after multer processes the file
     contentValidation, 
     validate, 
     createContent
@@ -37,6 +38,7 @@ router.patch(
     '/:id',
     protect,
     upload.single('file'), // Allow file upload for file replacement
+    uploadToSupabase, // Upload new file to Supabase if provided
     contentValidation,
     validate,
     updateContent

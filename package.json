@@ -18,7 +18,9 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "@supabase/supabase-js": "^2.93.3",
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
@@ -26,7 +28,8 @@
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.21.1",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

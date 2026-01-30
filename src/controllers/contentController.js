@@ -1,37 +1,49 @@
 const Content = require('../models/Content');
-const fs = require('fs').promises
-const path = require('path');
-
+const { deleteFromSupabase } = require('../middleware/supabaseUpload');
 
 // Create new content (file or text)
 // POST /api/content
-exports.createContent = async (req, res, next) =>{
-    try{
-        const {title , content, type} = req.body
+exports.createContent = async (req, res, next) => {
+    try {
+        const { title, content, type } = req.body;
+
+        console.log('Request body:', req.body);
+        console.log('Request file:', req.file);
 
         let contentData = {
-            userId : req.user.id,
+            userId: req.user.id,
             title,
-            type : type || 'text'
-        }
+            type: type || 'text'
+        };
 
-        if (type === 'file' && req.file) {
-            contentData.fileUrl = `/uploads/${req.file.filename}`;
+        if (type === 'file') {
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'File is required for file posts'
+                });
+            }
+
+            // Supabase upload middleware adds these properties
+            contentData.fileUrl = req.file.location; // Public URL
+            contentData.fileCloudinaryId = req.file.supabasePath; // Storage path for deletion
             contentData.fileName = req.file.originalname;
             contentData.fileType = req.file.mimetype;
             contentData.fileSize = req.file.size;
-        } 
-        else if (type === 'text') {
+
+            console.log('Supabase file uploaded:', {
+                url: contentData.fileUrl,
+                path: contentData.fileCloudinaryId
+            });
+        } else if (type === 'text') {
             if (!content) {
                 return res.status(400).json({
-                success: false,
-                message: 'Content is required for text posts'
+                    success: false,
+                    message: 'Content is required for text posts'
                 });
             }
-        
             contentData.content = content;
-        } 
-        else {
+        } else {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid content type or missing file'
@@ -42,20 +54,14 @@ exports.createContent = async (req, res, next) =>{
 
         res.status(201).json({
             success: true,
-            data : newContent,
-        })
+            data: newContent,
+        });
 
-    }
-    catch(error){
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(err => 
-                console.error('File cleanup error:', err)
-            );
-        }
+    } catch (error) {
+        console.error('Create content error:', error);
         next(error);
     }
-}
-
+};
 
 // Get specific content by Id
 // GET /api/content/:id
@@ -64,38 +70,38 @@ exports.getContentById = async (req, res, next) => {
         const { id } = req.params;
 
         const content = await Content.findById(id)
-        .populate('userId', 'username email');
+            .populate('userId', 'username email');
 
         if (!content) {
-        return res.status(404).json({
-            success: false,
-            message: 'Content not found'
-        });
+            return res.status(404).json({
+                success: false,
+                message: 'Content not found'
+            });
         }
 
         res.status(200).json({
-        success: true,
-        data: content
+            success: true,
+            data: content
         });
     } catch (error) {
         next(error);
     }
-}  
+};
 
-// Get all contents of specific content
+// Get all contents of specific user
 // GET /api/content/user/:userId
 exports.getUserContent = async (req, res, next) => {
     try {
         const { userId } = req.params;
 
         const contents = await Content.find({ userId })
-        .populate('userId', 'username email')
-        .sort({ createdAt: -1 });
+            .populate('userId', 'username email')
+            .sort({ createdAt: -1 });
 
         res.status(200).json({
-        success: true,
-        count: contents.length,
-        data: contents
+            success: true,
+            count: contents.length,
+            data: contents
         });
     } catch (error) {
         next(error);
@@ -107,18 +113,17 @@ exports.getUserContent = async (req, res, next) => {
 exports.getMyContent = async (req, res, next) => {
     try {
         const contents = await Content.find({ userId: req.user.id })
-        .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 });
 
         res.status(200).json({
-        success: true,
-        count: contents.length,
-        data: contents
+            success: true,
+            count: contents.length,
+            data: contents
         });
     } catch (error) {
         next(error);
     }
 };
-
 
 // Update content (title, content text, or replace file)
 // PATCH /api/content/:id
@@ -131,30 +136,18 @@ exports.updateContent = async (req, res, next) => {
         const existingContent = await Content.findById(id);
 
         if (!existingContent) {
-        // Clean up uploaded file if any
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(err => 
-            console.error('File cleanup error:', err)
-            );
-        }
-        return res.status(404).json({
-            success: false,
-            message: 'Content not found'
-        });
+            return res.status(404).json({
+                success: false,
+                message: 'Content not found'
+            });
         }
 
         // Check ownership
         if (existingContent.userId.toString() !== req.user.id) {
-        // Clean up uploaded file if any
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(err => 
-            console.error('File cleanup error:', err)
-            );
-        }
-        return res.status(403).json({
-            success: false,
-            message: 'Not authorized to update this content'
-        });
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to update this content'
+            });
         }
 
         // Prepare update data
@@ -162,96 +155,86 @@ exports.updateContent = async (req, res, next) => {
 
         // Update title if provided
         if (title) {
-        updateData.title = title;
+            updateData.title = title;
         }
 
         // Handle text content update
         if (existingContent.type === 'text') {
-        if (content !== undefined) {
-            if (!content.trim()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Content cannot be empty for text posts'
-            });
+            if (content !== undefined) {
+                if (!content.trim()) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Content cannot be empty for text posts'
+                    });
+                }
+                updateData.content = content;
             }
-            updateData.content = content;
-        }
 
-        // If a file is uploaded for a text post, reject it
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(err => 
-            console.error('File cleanup error:', err)
-            );
-            return res.status(400).json({
-            success: false,
-            message: 'Cannot upload file to a text post. Create a new file post instead.'
-            });
-        }
+            // If a file is uploaded for a text post, reject it
+            if (req.file) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot upload file to a text post. Create a new file post instead.'
+                });
+            }
         }
 
         // Handle file content update
         if (existingContent.type === 'file') {
-        // If user is trying to update text content on a file post
-        if (content !== undefined) {
-            return res.status(400).json({
-            success: false,
-            message: 'Cannot update text content on a file post. Create a new text post instead.'
-            });
-        }
-
-        // If a new file is uploaded, replace the old one
-        if (req.file) {
-            // Delete old file
-            if (existingContent.fileUrl) {
-            const oldFilePath = path.join(__dirname, '../../', existingContent.fileUrl);
-            await fs.unlink(oldFilePath).catch(err => 
-                console.error('Old file deletion error:', err)
-            );
+            // If user is trying to update text content on a file post
+            if (content !== undefined) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cannot update text content on a file post. Create a new text post instead.'
+                });
             }
 
-            // Update with new file
-            updateData.fileUrl = `/uploads/${req.file.filename}`;
-            updateData.fileName = req.file.originalname;
-            updateData.fileType = req.file.mimetype;
-            updateData.fileSize = req.file.size;
-        }
+            // If a new file is uploaded, replace the old one
+            if (req.file) {
+                // Delete old file from Supabase
+                if (existingContent.fileCloudinaryId) {
+                    await deleteFromSupabase(existingContent.fileCloudinaryId).catch(err =>
+                        console.error('Supabase deletion error:', err)
+                    );
+                }
+
+                // Update with new file
+                updateData.fileUrl = req.file.location;
+                updateData.fileCloudinaryId = req.file.supabasePath;
+                updateData.fileName = req.file.originalname;
+                updateData.fileType = req.file.mimetype;
+                updateData.fileSize = req.file.size;
+            }
         }
 
         // Check if there's anything to update
         if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({
-            success: false,
-            message: 'No valid fields to update'
-        });
+            return res.status(400).json({
+                success: false,
+                message: 'No valid fields to update'
+            });
         }
 
         // Update the content
         const updatedContent = await Content.findByIdAndUpdate(
-        id,
-        updateData,
-        { 
-            new: true, // Return updated document
-            runValidators: true // Run model validators
-        }
+            id,
+            updateData,
+            {
+                new: true, // Return updated document
+                runValidators: true // Run model validators
+            }
         ).populate('userId', 'username email');
 
         res.status(200).json({
-        success: true,
-        data: updatedContent,
-        message: 'Content updated successfully'
+            success: true,
+            data: updatedContent,
+            message: 'Content updated successfully'
         });
 
     } catch (error) {
-        // Clean up uploaded file if error occurs
-        if (req.file) {
-        await fs.unlink(req.file.path).catch(err => 
-            console.error('File cleanup error:', err)
-        );
-        }
         next(error);
     }
-}  
-
+};
 
 // Delete specific content by it's Id
 // DELETE /api/content/:id
@@ -262,33 +245,32 @@ exports.deleteContent = async (req, res, next) => {
         const content = await Content.findById(id);
 
         if (!content) {
-        return res.status(404).json({
-            success: false,
-            message: 'Content not found'
-        });
+            return res.status(404).json({
+                success: false,
+                message: 'Content not found'
+            });
         }
 
         // Check ownership
         if (content.userId.toString() !== req.user.id) {
-        return res.status(403).json({
-            success: false,
-            message: 'Not authorized to delete this content'
-        });
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to delete this content'
+            });
         }
 
-        // Delete file if it exists
-        if (content.type === 'file' && content.fileUrl) {
-        const filePath = path.join(__dirname, '../../', content.fileUrl);
-        await fs.unlink(filePath).catch(err => 
-            console.error('File deletion error:', err)
-        );
+        // Delete file from Supabase if it exists
+        if (content.type === 'file' && content.fileCloudinaryId) {
+            await deleteFromSupabase(content.fileCloudinaryId).catch(err =>
+                console.error('Supabase file deletion error:', err)
+            );
         }
 
         await Content.findByIdAndDelete(id);
 
         res.status(200).json({
-        success: true,
-        message: 'Content deleted successfully'
+            success: true,
+            message: 'Content deleted successfully'
         });
     } catch (error) {
         next(error);
