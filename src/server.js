@@ -14,8 +14,10 @@ const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
-// Connect to database
-connectDB();
+// Connect to database ONLY if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  connectDB();
+}
 
 // Middleware
 app.use(helmet());
@@ -26,7 +28,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files (uploaded files)
+// Serve static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check route
@@ -38,12 +40,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes - MUST BE BEFORE 404 HANDLER
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/user', userRoutes);
 
-// 404 handler - MUST BE AFTER ALL ROUTES
+// 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
@@ -51,19 +53,22 @@ app.use('*', (req, res) => {
   });
 });
 
-// Error handler 
+// Error handler (must be last)
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-});
+// Only start server if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error(`Unhandled Rejection: ${err.message}`);
-  server.close(() => process.exit(1));
-});
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (err) => {
+    console.error(`❌ Unhandled Rejection: ${err.message}`);
+    server.close(() => process.exit(1));
+  });
+}
 
 module.exports = app;
