@@ -20,7 +20,7 @@ const fileFilter = (req, file, cb) => {
   if (extname && mimetype) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, PDF, DOC, DOCX, and TXT files are allowed.'));
+    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, PDF, DOC, DOCX, PPTX and TXT files are allowed.'));
   }
 };
 
