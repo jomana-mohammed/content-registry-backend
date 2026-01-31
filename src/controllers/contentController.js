@@ -26,14 +26,14 @@ exports.createContent = async (req, res, next) => {
 
             // Supabase upload middleware adds these properties
             contentData.fileUrl = req.file.location; // Public URL
-            contentData.fileCloudinaryId = req.file.supabasePath; // Storage path for deletion
+            contentData.fileSupabaseId = req.file.supabasePath; // Storage path for deletion
             contentData.fileName = req.file.originalname;
             contentData.fileType = req.file.mimetype;
             contentData.fileSize = req.file.size;
 
             console.log('Supabase file uploaded:', {
                 url: contentData.fileUrl,
-                path: contentData.fileCloudinaryId
+                path: contentData.ffileSupabaseId
             });
         } else if (type === 'text') {
             if (!content) {
@@ -192,15 +192,15 @@ exports.updateContent = async (req, res, next) => {
             // If a new file is uploaded, replace the old one
             if (req.file) {
                 // Delete old file from Supabase
-                if (existingContent.fileCloudinaryId) {
-                    await deleteFromSupabase(existingContent.fileCloudinaryId).catch(err =>
+                if (existingContent.fileSupabaseId) {
+                    await deleteFromSupabase(existingContent.fileSupabaseId).catch(err =>
                         console.error('Supabase deletion error:', err)
                     );
                 }
 
                 // Update with new file
                 updateData.fileUrl = req.file.location;
-                updateData.fileCloudinaryId = req.file.supabasePath;
+                updateData.fileSupabaseId = req.file.supabasePath;
                 updateData.fileName = req.file.originalname;
                 updateData.fileType = req.file.mimetype;
                 updateData.fileSize = req.file.size;
@@ -260,8 +260,8 @@ exports.deleteContent = async (req, res, next) => {
         }
 
         // Delete file from Supabase if it exists
-        if (content.type === 'file' && content.fileCloudinaryId) {
-            await deleteFromSupabase(content.fileCloudinaryId).catch(err =>
+        if (content.type === 'file' && content.fileSupabaseId) {
+            await deleteFromSupabase(content.fileSupabaseId).catch(err =>
                 console.error('Supabase file deletion error:', err)
             );
         }

@@ -43,7 +43,7 @@ const uploadToSupabase = async (req, res, next) => {
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
-      .from('content-registry') // Your bucket name
+      .from('content-registry') // bucket name
       .upload(filePath, req.file.buffer, {
         contentType: req.file.mimetype,
         upsert: false
@@ -74,8 +74,9 @@ const uploadToSupabase = async (req, res, next) => {
   }
 };
 
-// Helper function to delete file from Supabase
+//  Delete file from Supabase
 const deleteFromSupabase = async (filePath) => {
+  console.log("entered delete supabase fn")
   try {
     const { error } = await supabase.storage
       .from('content-registry')

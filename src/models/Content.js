@@ -31,6 +31,9 @@ const contentSchema = new mongoose.Schema({
         return this.type === 'file';
         }
     },
+    fileSupabaseId: {
+        type : String
+    },
     fileName: {
         type: String
     },
