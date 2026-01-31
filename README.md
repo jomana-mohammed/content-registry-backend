@@ -1,4 +1,4 @@
-# Content Registry Backend API
+# Content Registry
 
 Backend API for the Content Registry platform - A full-stack application for uploading and managing files and text posts.
 
